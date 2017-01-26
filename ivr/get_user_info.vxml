@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<vxml version="2.0" application="rsystem.vxml">
+			
+			
+<catch event="error.user.notfound">
+	<audio src="audio/record_not_found.wav"> 
+		Unable to locate your record. 
+	</audio>
+
+	<throw event="onTransferCallToAgent" />
+</catch>
+
+
+<!-- Retrieve user ID from our perl backend -->
+<form id="getUserID">
+
+	<!-- cgi script url -->
+	<var name="data_url" expr="application.url_get_info" />
+	
+	<!-- cgi parameters -->
+	<var name="ani" expr="session.telephone.ani" />
+
+	<!-- fetch xml feed -->
+	<data name="oData" expr="data_url" namelist="ani" />
+	<var name="oResponse" expr="new Response(oData)" />
+
+	<block>
+
+	<!-- error conditions -->
+		<if cond="oResponse.GetCode() == -1">
+			<throw event="error.response.failed" />
+		</if>
+
+		<if cond="oResponse.GetCode() ==  1">
+			<throw event="error.user.notfound" />
+		</if>
+
+		<!-- successful retrieval, fetch user id and set -->
+		<if cond="oResponse.GetCode() ==  0">
+			<var name="oUserNode" expr="oResponse.GetRoot().firstChild" />
+			<var name="UserID"    expr="oUserNode.getAttribute('ID')" />
+
+			<assign name="application.global_uid" expr="UserID" />
+
+			<goto next="rsystem.vxml#main_make_reservation" />
+		</if>
+
+	</block>
+
+</form>
+
+</vxml>
+

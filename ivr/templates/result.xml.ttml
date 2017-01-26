@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<?access-control allow="*"?>
+<CalShuttle ResultCode="[% result.code %]" ResultString="[% result.text %]">
+	[% contents %]
+</CalShuttle>

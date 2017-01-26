@@ -1,0 +1,9 @@
+
+<Reservation ID="[% reservation.id %]">
+	<Airport>[% reservation.airport %]</Airport>
+	<FlightDate>[% reservation.flightdate %]</FlightDate>
+	<FlightTime>[% reservation.flighttime %]</FlightTime>
+	<PickupDate>[% reservation.pickupdate %]</PickupDate>
+	<PickupTime>[% reservation.pickuptime %]</PickupTime>
+	<Fare>[% reservation.fare %]</Fare>
+</Reservation>

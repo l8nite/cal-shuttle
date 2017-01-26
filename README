@@ -1,0 +1,102 @@
+All files (c) 2004 Shaun Guth unless otherwise specified
+
+1-800-555-VXML
+
+Tellme Studio Developer ID: 67776
+Tellme Studio Developer PIN: 2872
+
+URLs:
+	(api calls)
+	http://speedy.l8nite.net/cal-shuttle/get_user_info.pl
+	http://speedy.l8nite.net/cal-shuttle/make_reservation.pl
+
+	(data files)
+	http://speedy.l8nite.net/cal-shuttle/data/
+
+	(vxml application files)
+	http://speedy.l8nite.net/cal-shuttle/ivr/
+
+	(back-end Perl modules)
+	http://speedy.l8nite.net/cal-shuttle/ivr/modules/
+
+	(audio files)
+	http://speedy.l8nite.net/cal-shuttle/ivr/audio/
+
+	(javascript files)
+	http://speedy.l8nite.net/cal-shuttle/ivr/scripts/
+
+	(xml templates)
+	http://speedy.l8nite.net/cal-shuttle/ivr/templates/
+
+
+About:
+	
+	This was an exercise designed to provide prospective application 
+	engineering partners with a practical example of the work required to 
+	build a simple IVR solution within the context of Tellme's value-added 
+	application development process.
+
+	It took roughly 20 hours to complete starting with no knowledge of vxml
+
+
+Back-end Design
+
+	The overall structure of the back end may look complex to begin with,
+	but it is actually a well-practiced design that I have been working 
+	with for many years.  It works in much the same way that 
+	CGI::Application does.  The API scripts 'get_user_info.pl' are actually 
+	simple wrappers to our powerful RSystem object.  They specify the 
+	'run-mode' they wish to execute, and then give control over to the 
+	RSystem object.
+
+	The RSystem object is actually a subclass of another Application class
+	which takes care of the tedium of loading a configuration file, 
+	initializes a template engine for us to use, handles our 
+	http headers/cookies, etc.
+
+	That class still further subclasses our base Controller class which 
+	handles general application flow, connecting our 'run-modes' to their 
+	respective handlers and subroutines, etc.
+
+	Using templates allowed me to have a "plug-n-play" response generator 
+	in the RSystem code.  This let me do some rapid prototyping and 
+	virtually eliminated typos that could result in malformed XML.
+
+	Each of the 2 run-mode's we use (get_user_info and make_reservation) 
+	are responsible for error-checking their input and returning errors as 
+	needed.
+
+
+Other thoughts / Design Decisions
+
+	For the API responses, there were several types of errors which could 
+	have arisen, ranging from not being able to open our database file to 
+	incorrect parameters being passed in.  Since all of these errors are 
+	pretty much handled the same in the vxml application, I created a new
+	error code -1 to indicate an error that was not part of the original 
+	specification.
+
+	The make_reservation API is a bit misleading.  I chose to follow the 
+	logic in the decision-tree at the end of the exercise instructions.  
+	At first, I was under the impression that this API should generate a 
+	new pickup date, time, and fare according to when the user's plane was 
+	leaving, and then it would write that information to disk.  Instead, 
+	the flowchart seemed to indicate that I was checking if there was a
+	match in the database for the specific userid, airport, and departure 
+	date/time.  I chose to follow this.
+
+	There isn't any "Confirm your input" type dialogs, but they would be a
+	nice addition to ensuring the user doesn't mistakenly input incorrect 
+	info.
+
+	We convert all times to military format (0000-2359).  
+	We assume that the time is in military if the user fails to specify.
+
+	The GetFlightDate() function will have some errors on dates very far in
+	the future (past 2036 I believe) and earlier than 1970.  This is due to
+	how the javascript engine handles dates.
+
+	I took some liberty with the dialog recording and the various messages 
+	and utterances.  They don't deviate far from the original 
+	specifications though.
+

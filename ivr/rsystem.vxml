@@ -1,0 +1,139 @@
+<?xml version="1.0"?>
+<vxml version="2.0">
+
+<!-- Application scope variables -->
+<var name="url_make_res" expr="'http://speedy.l8nite.net/cal-shuttle/make_reservation.pl'" />
+<var name="url_get_info" expr="'http://speedy.l8nite.net/cal-shuttle/get_user_info.pl'" />
+<var name="global_uid"   expr="null" />
+
+
+<!-- Response class (object for CalShuttle response xml) -->
+<script src="scripts/response.js" />
+
+
+<!-- Allow the caller to transfer with dtmf-0 or "agent/repr.." -->
+<link event="onTransferCallToAgent">
+	<grammar type="application/x-gsl" mode="dtmf">
+		[dtmf-0]
+	</grammar>
+	<grammar type="application/x-gsl" mode="voice">
+		[representative agent]
+	</grammar>
+</link>
+
+
+<!-- catch the transfer event signal -->
+<catch event="onTransferCallToAgent">
+	<goto next="transfer_call.vxml" />
+</catch>
+
+
+<!-- if the user simply hangs up on us -->
+<catch event="telephone.disconnect.hangup">
+	<log>Ending Session</log>
+</catch>
+
+
+
+<!-- Our main program entry point -->
+<form id="main">
+
+	<!-- preamble text -->
+	<block>
+		<audio src="audio/welcome.wav">	Welcome to the Cal-Shuttle online reservation system. </audio>
+		<audio src="audio/instructions.wav">You may interrupt this call and speak directly to a representative by saying, representative. Or, agent. Or by pressing zero on your touch-tone phone.</audio>
+	</block>
+
+	<!-- we only need to query here if we haven't already -->
+	<block> <if cond="application.global_uid == null">
+		<goto next="get_user_info.vxml" />
+	</if> </block>
+
+</form>
+
+
+<!-- controller for make_reservation.vxml -->
+<form id="main_make_reservation">
+
+	<!-- make reservation with the caller -->
+	<subdialog name="sr2" src="make_reservation.vxml">
+
+		<param name="UserID" expr="application.global_uid" />
+
+		<catch event="error.reservation.failed error.response.failed">
+
+			<audio src="audio/reservation_failed.wav">
+				Sorry; I was unable to make your reservation.
+			</audio>
+
+			<throw event="onTransferCallToAgent" />
+
+		</catch>
+
+		<filled>
+			<var name="oReservation" expr="sr2.oReservation" />
+
+			<!-- repeat reservation time -->
+			<audio src="audio/reservation_success1.wav">
+				Your reservation has been made.
+				<break size="small" />
+				Your shuttle will pick you up at
+			</audio>
+			<prompt>
+				<say-as type="time:hm"><value expr="oReservation.GetPickupTime()" /></say-as>
+			</prompt>
+
+			<!-- repeat reservation fare -->
+			<audio src="audio/reservation_success2.wav">
+				The total fare for this shuttle trip is
+			</audio>
+			<prompt>
+				<say-as type="currency"><value expr="oReservation.GetFare()" /></say-as>
+			</prompt>
+
+			<!-- repeat confirmation number -->
+			<audio src="audio/reservation_success3.wav">
+				and your confirmation number is
+			</audio>
+			<prompt>
+				<say-as type="number:digits"><value expr="oReservation.GetID()" /></say-as>
+			</prompt>
+		</filled>
+
+	</subdialog>
+
+
+	<!-- and finally exit the program -->
+	<block>
+		<goto next="#exit" />
+	</block>
+
+</form>
+
+
+
+<!-- exit the reservation system with a friendly parting -->
+<form id="exit">
+<block>
+	<audio src="audio/thankyou.wav"> 
+		Thank you for calling Cal-Shuttle!
+		<break size="small" />
+		Good-bye.
+	</audio>
+	<exit />
+</block>
+</form>
+
+
+
+<!-- catch-all handles anything that gets by (errors) (transfers caller) -->
+<catch event="">
+	<audio src="audio/system_error.wav">
+		There has been an error in our application.
+	</audio>
+	
+	<throw event="onTransferCallToAgent" />
+</catch>
+
+
+</vxml>

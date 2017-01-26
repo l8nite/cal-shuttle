@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<vxml version="2.0" application="rsystem.vxml">
+
+
+<!-- transfers the caller to the Cal-Shuttle call center -->
+<form id="transferCallToAgent">
+
+	<!-- hard-coded number... could use random array or cgi query -->
+	<transfer name="tStatus" bridge="true" destexpr="'tel:+14084814757'" connecttimeout="15s" maxtime="60s">
+
+		<!-- only allow DTMF input during this transfer -->
+		<property name="inputmodes" value="dtmf" />
+
+		<!-- inform caller the transfer is taking place and how to cancel -->
+		<audio src="audio/transfer_instructions.wav">
+			Please hold while I transfer your call to the next available representative.
+			<break size="small" />
+			Press star star to cancel.
+		</audio>
+
+		<!-- allows the caller to cancel the transfer to an agent and restart
+			 the application by issuing a '**' during the transfer -->
+		<grammar type="application/x-gsl" mode="dtmf" >
+		<![CDATA[
+			[ (dtmf-star dtmf-star) {<tAbort 1>} ]
+		]]>
+		</grammar>
+
+		<!-- check status of the call transfer and then exit as appropriate -->
+		<filled>
+
+			<!-- did the user abort? -->
+			<if cond="tStatus == 'near_end_disconnect'">
+				<goto next="rsystem.vxml#main" />
+
+			<!-- line busy? -->
+			<elseif cond="tStatus == 'busy'" />
+				<audio src="audio/line_busy.wav"> 
+					The line was busy, please try again later. 
+				</audio>
+			</if>
+
+			<!-- exit the application after the transfer -->
+			<goto next="rsystem.vxml#exit" />
+
+		</filled>
+
+		<!-- if the transfer fails, log it.. this could go to a cgi -->
+		<error>
+			<log><value expr="_event" /> occured while attempting call transfer.</log>
+
+			<audio src="audio/transfer_error.wav">
+					There was an error during the transfer.
+			</audio>
+
+			<goto next="rsystem.vxml#exit" />
+		</error>
+	
+	</transfer>
+
+</form>
+
+
+</vxml>

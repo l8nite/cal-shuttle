@@ -1,0 +1,259 @@
+<?xml version="1.0"?>
+<vxml version="2.0" application="rsystem.vxml">
+
+
+<!-- "Go Back" support -->
+<script><![CDATA[
+	var aNavHistory = new Array();
+
+	function getGoBack()
+	{
+		return (aNavHistory.pop() || document.sDefaultGoBack);
+	}
+]]></script>
+
+<var name="sDefaultGoBack" expr="'#getAirport'" />
+
+<link event="onGoBack">
+	<grammar type="application/x-gsl" mode="voice">
+	[(go back)]
+	</grammar>
+</link>
+
+<catch event="onGoBack">
+	<goto expr="getGoBack()" />
+</catch>
+
+
+<!-- Reservation class definition -->
+<script src="scripts/reservation.js" />
+
+<!-- Reservation object instance to store our data (helps formatting) -->
+<var name="oReservation" expr="new Reservation()" />
+
+
+<!-- Catches for nomatch and noinput (since we're prompting here) -->
+<catch event="noinput" count="1">
+	<audio src="audio/noinput1.wav">
+		I am unable to hear you.
+	</audio>
+	<reprompt />
+</catch>
+
+<catch event="nomatch" count="1">
+	<audio src="audio/nomatch1.wav">
+		Can you repeat your answer please?
+	</audio>
+	<reprompt />
+</catch>
+
+
+<!-- Primary dialog for collecting caller's information and scheduling -->
+<form id="getReservationInput">
+
+	<var name="UserID" />
+
+	<script><![CDATA[ oReservation.SetUID( UserID ) ]]></script>
+
+	<block>
+		<goto next="#getAirport" />
+	</block>
+</form>
+
+
+<!-- collect their departure airport -->
+<form id="getAirport">
+
+	<field name="airport">
+
+		<grammar type="application/x-gsl" mode="voice">
+		<![CDATA[
+		[	(san jose ?airport)      {<airport "SJC">}
+			(san francisco ?airport) {<airport "SFO">}
+			(oakland ?airport)       {<airport "OAK">}
+		] ]]>
+		</grammar>
+
+		<prompt count="1">
+			<audio src="audio/airport_prompt.wav">
+				What airport are you departing from?
+			</audio>
+		</prompt>
+
+		<!-- second time around, give them a little help -->
+		<prompt count="2">
+			<audio src="audio/airport_prompt.wav">
+				What airport are you departing from?
+			</audio>
+			<audio src="audio/airport_help.wav">
+				Cal-Shuttle currently services the San Francisco, Oakland, and San Jose airports.  To select one, please say its name.
+			</audio>
+		</prompt>
+
+		<filled>
+			<script><![CDATA[ oReservation.SetAirport( airport ); ]]></script>
+			<audio src="audio/okay.wav">okay</audio>
+		</filled>
+
+	</field>
+
+	<block>
+		<goto next="#getDDate" />
+	</block>
+
+</form>
+
+
+<!-- collect their departure date -->
+<form id="getDDate">
+
+	<field name="date" type="date">
+
+		<grammar type="application/x-gsl" mode="voice">
+		<![CDATA[
+		[   sunday     {<day 0>}
+			monday     {<day 1>}
+			tuesday    {<day 2>}
+			wednesday  {<day 3>}
+			thursday   {<day 4>}
+			friday     {<day 5>}
+			saturday   {<day 6>}
+			today      {<day 7>}
+			tomorrow   {<day 8>}
+		] ]]>
+		</grammar>
+
+		<prompt count="1">
+			<audio src="audio/date_prompt.wav">
+				What date are you departing on?
+			</audio>
+		</prompt>
+
+		<!-- second time around, give them a little help -->
+		<prompt count="2">
+			<audio src="audio/date_prompt.wav">
+				What date are you departing on?
+			</audio>
+			<audio src="audio/date_help.wav">
+				You can say Today or Tomorrow.  Or you can name a weekday such as Monday.  You can also speak a month-day combination such as May 2nd or June the 25th.
+			</audio>
+		</prompt>
+
+		<filled>
+			<!-- set date if caller said a weekday, "tomorrow", or "today" -->
+			<if cond="typeof(day) != 'undefined'"> 
+				<assign name="date" expr='day' /> 
+			</if>
+
+			<script><![CDATA[ oReservation.SetFlightDate( date ); ]]></script>
+			<audio src="audio/okay.wav">okay</audio>
+		</filled>
+
+	</field>
+
+	<block>
+		<script><![CDATA[ aNavHistory.push( '#getDDate' ); ]]></script>
+		<goto next="#getDTime" />
+	</block>
+
+</form>
+
+
+
+<!-- collect their departure time -->
+<form id="getDTime">
+
+	<field name="time" type="time">
+			
+		<prompt count="1">
+			<audio src="audio/time_prompt.wav">
+				What time is your flight departing?
+			</audio>
+		</prompt>
+
+		<prompt count="2">
+			<audio src="audio/time_prompt.wav">
+				What time is your flight departing?
+			</audio>
+			<audio src="audio/time_help.wav">
+				Please say the time to the nearest 5 minutes.  For example <say-as type="time:hm">9:35pm</say-as>
+			</audio>
+		</prompt>
+
+		<filled>
+			<var name="a" expr="oReservation.SetFlightTime( time )" />	
+		</filled>
+
+	</field>
+
+	<block>
+		<goto next="#makeReservation" />
+	</block>
+
+</form>
+
+
+
+<!-- try and make the reservation with the backend -->
+<form id="makeReservation">
+
+	<!-- cgi script url -->
+	<var name="data_url" expr="application.url_make_res" />
+
+	<!-- cgi parameters -->
+	<var name="id" expr="oReservation.GetUID()" />
+	<var name="airport" expr="oReservation.GetAirport()" />
+	<var name="date" expr="oReservation.GetFlightDate()" />
+	<var name="time" expr="oReservation.GetFlightTime()" />
+
+	<!-- fetch the xml feed -->
+	<data name="oData" expr="data_url" namelist="id airport date time" />
+	<var name="oResponse" expr="new Response(oData)" />
+
+	<block>
+
+		<!-- error conditions -->
+		<if cond="oResponse.GetCode() == -1">
+			<return event="error.response.failed" />
+		</if>
+
+		<if cond="oResponse.GetCode() ==  1">
+			<return event="error.reservation.failed" />
+		</if>
+
+		<!-- successful retrieval, fetch reservation info and set -->
+		<if cond="oResponse.GetCode() ==  0">
+			<script> <![CDATA[
+
+				var oResNode  = oResponse.GetRoot().firstChild;
+				var oChildren = oResNode.childNodes;
+	
+				oReservation.SetID( oResNode.getAttribute('ID') );
+
+				for( var i = 0; i < oChildren.length; i++ )
+				{
+					var oChild = oChildren.item(i);
+					if( oChild.nodeName == 'PickupDate' )
+					{
+						oReservation.SetPickupDate( oChild.text );
+					}
+					else if( oChild.nodeName == 'PickupTime' )
+					{
+						oReservation.SetPickupTime( oChild.text );
+					}
+					else if( oChild.nodeName == 'Fare' )
+					{
+						oReservation.SetFare( oChild.text );
+					}
+				}
+
+			]]> </script>
+
+			<return namelist="oReservation" />
+		</if>
+
+	</block>
+
+</form>
+
+</vxml>
